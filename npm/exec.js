@@ -1,20 +1,28 @@
 #!/usr/bin/env node
-const os = require("os");
-const fs = require("fs");
-const stream = require("stream");
-const childProcess = require("child_process");
-const path = require('path');
+import os from "os";
+import fs from "fs";
+import stream from "stream";
+import childProcess from "child_process";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const got = require("got");
-const tar = require("tar");
+import got from "got";
+import { extract } from "tar/x";
 
-const {name, version} = require("../package.json");
-const binaryFile = name.split('/')[1];
-const packageDir =  path.join(__dirname, '..')
-const binaryLocation = path.join(packageDir, binaryFile);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const packageDir = path.join(__dirname, "..");
+const packageJsonFilePath = path.join(packageDir, "package.json");
+const packageData = JSON.parse(fs.readFileSync(packageJsonFilePath, "utf8"));
+const { name, version } = packageData;
+
+const binaryFileName = name.split("/")[1];
+const binaryFilePath = path.join(packageDir, binaryFileName);
 
 const platformFiles = {
   "darwin x64": "darwin-amd64",
+  "darwin arm64": "darwin-arm64",
   "linux x64": "linux-amd64",
   "linux 386": "linux-386",
   "win32 x64": "windows-amd64",
@@ -27,37 +35,33 @@ if (!platform) {
   process.exit(1);
 }
 
-const uninstall = () => {
-  if (fs.existsSync(binaryLocation)) {
-    fs.rmSync(binaryLocation);
+export const uninstall = () => {
+  if (fs.existsSync(binaryFilePath)) {
+    fs.rmSync(binaryFilePath);
   }
 };
 
-const install = () => {
-  const url = `https://github.com/Shopify/${binaryFile}/releases/download/v${version}/${platform}.tar.gz`;
+export const install = () => {
+  const url = `https://github.com/Shopify/${binaryFileName}/releases/download/v${version}/${platform}.tar.gz`;
   stream.pipeline(
     got.stream(url),
-    tar.x({ C: packageDir }),
-    err => err && console.error(err.message)
+    extract({ C: packageDir }),
+    (err) => err && console.error(err.message)
   );
 };
 
-const run = () => {
+export const run = () => {
   const [, , ...args] = process.argv;
-  args.push('-nodedir', process.cwd());
-  const result = childProcess.spawnSync(binaryLocation, args, {
+  args.push("-nodedir", process.cwd());
+  const result = childProcess.spawnSync(binaryFilePath, args, {
     stdio: "inherit",
-    cwd: packageDir
+    cwd: packageDir,
   });
 
   if (result.error) {
     console.error(result.error);
   }
-  process.exit(result.status);
-};
 
-module.exports = {
-  uninstall,
-  install,
-  run,
+  const statusNumber = result.status ? result.status : 1;
+  process.exit(statusNumber);
 };

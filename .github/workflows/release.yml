@@ -10,22 +10,29 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # build and publish in parallel: linux/386, linux/amd64, windows/386, windows/amd64, darwin/amd64
+        # build and publish in parallel: linux/386, linux/amd64, windows/386, windows/amd64, darwin/amd64, darwin/arm64
         goos: [linux, windows, darwin]
-        goarch: ["386", amd64]
+        goarch: ["386", amd64, arm64]
         exclude:
           - goarch: "386"
             goos: darwin
+          - goarch: "arm64"
+            goos: windows
+          - goarch: "arm64"
+            goos: linux
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
         with:
-          go-version: '^1.16'
+          go-version: "^1.21"
       - run: go build ./...
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
       # get-repo-images or get-repo-images.exe
+      - run: ls
+      - run: tar --version
+      - run: echo "${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz"
       - run: tar -czvf ${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz get-repo-images*
       - name: Upload ${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz to release
         uses: Shopify/upload-to-release@master
